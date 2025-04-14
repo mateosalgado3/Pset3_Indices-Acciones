@@ -1,0 +1,85 @@
+# ===== LIBRERÍAS =====
+import pandas as pd
+import numpy as np
+import ta
+import os
+
+# ===== FUNCIONES =====
+
+def engineer_features(df):
+    df = df.copy()
+    
+    # === Date Features ===
+    df['day'] = df['Date'].dt.day
+    df['weekday'] = df['Date'].dt.weekday
+    df['month'] = df['Date'].dt.month
+    df['year'] = df['Date'].dt.year
+
+    # === Technical Indicators ===
+    df['SMA_10'] = ta.trend.sma_indicator(df['Close'], window=10)
+    df['SMA_50'] = ta.trend.sma_indicator(df['Close'], window=50)
+    df['RSI_14'] = ta.momentum.rsi(df['Close'], window=14)
+    df['MACD_diff'] = ta.trend.macd_diff(df['Close'])
+
+    boll = ta.volatility.BollingerBands(close=df['Close'])
+    df['Bollinger_Middle'] = boll.bollinger_mavg()
+    df['Bollinger_High'] = boll.bollinger_hband()
+    df['Bollinger_Low'] = boll.bollinger_lband()
+
+    # === Derived Variables ===
+    df['Price_Change'] = df['Close'].pct_change()
+    df['Volatility_10d'] = df['Close'].rolling(window=10).std()
+
+    # === Volume Features ===
+    if 'Volume' in df.columns:
+        df['Volume_Change'] = df['Volume'].pct_change()
+        df['Unusual_Volume'] = np.where(df['Volume_Change'].abs() > 0.5, 1, 0)
+
+    # === Momentum Features ===
+    df['momentum_3d'] = df['Close'] - df['Close'].shift(3)
+    df['momentum_5d'] = df['Close'] - df['Close'].shift(5)
+    df['momentum_7d'] = df['Close'] - df['Close'].shift(7)
+    df['momentum_10d'] = df['Close'] - df['Close'].shift(10)
+
+    # === Rolling Mean Features ===
+    df['rolling_mean_3d'] = df['Close'].rolling(window=3).mean()
+    df['rolling_mean_5d'] = df['Close'].rolling(window=5).mean()
+
+    # === Rolling Std Features ===
+    df['rolling_std_3d'] = df['Close'].rolling(window=3).std()
+    df['rolling_std_5d'] = df['Close'].rolling(window=5).std()
+
+    # === Return Features ===
+    df['return_1d'] = df['Close'].pct_change()
+    df['rolling_return_3d'] = df['Close'].pct_change(periods=3)
+    df['rolling_return_5d'] = df['Close'].pct_change(periods=5)
+
+    # === Drop NaNs & Duplicates ===
+    df.dropna(inplace=True)
+    df = df.loc[:, ~df.columns.duplicated()]
+
+    return df
+
+def process_and_save(file_path, output_path):
+    df = pd.read_csv(file_path, parse_dates=["Date"])
+    
+    # Apply feature engineering
+    df = engineer_features(df)
+
+    # Ensure output directory exists
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+    # Save engineered file
+    df.to_csv(output_path, index=False)
+    print(f" Saved engineered dataset to {output_path}")
+
+# ===== MAIN =====
+if __name__ == "__main__":
+    process_and_save(
+        r"C:\Users\pmate\Downloads\Pset3\Pset3\data\CLEAN\SPY_balanced_all_columns.csv",
+        r"C:\Users\pmate\Downloads\Pset3\Pset3\data\CLEAN\SPY_listo_entrenar.csv"
+    )
+    process_and_save(
+        r"C:\Users\pmate\Downloads\Pset3\Pset3\data\CLEAN\QQQ_balanced_all_columns.csv",
+        r"C:\Users\pmate\Downloads\Pset3\Pset3\data\CLEAN\QQQ_listo_entrenar.csv"
+    )
